@@ -1,6 +1,6 @@
 // SPIMF System Configuration - OPTIMIZED
 const SPIMF_CONFIG = {
-    APP_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycby6tXHxwYbp6AlQiCMpsEOkcDLiyKCD4zMgdIwIxo-_29M_pOYr8SvMXdX7BtyF6pew/exec',
+    APP_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbwZvi-IfLNFrlNSaFifZNkUPgTGpJwjM5T0mKKXmXhAs-RK9_1tZHoSoHM9kcZMX163/exec',
     OPERATING_HOURS: [
         { start: '06:00', end: '11:30' },
         { start: '12:00', end: '18:00' },
