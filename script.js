@@ -1,4 +1,4 @@
-// SPIMF System Configuration
+// SPIMF System Configuration - OPTIMIZED
 const SPIMF_CONFIG = {
     APP_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbw8sRFcGxZZbRyRyg0_NHMYuaGPAGM_rwrUa5phlR6IfYOI8IErCksWOfr9rQcvA_-a/exec',
     OPERATING_HOURS: [
@@ -13,6 +13,8 @@ class SPIMFSystem {
     constructor() {
         this.currentUser = null;
         this.isSystemActive = false;
+        this.retryCount = 0;
+        this.maxRetries = 2;
         this.init();
     }
 
@@ -21,11 +23,11 @@ class SPIMFSystem {
         this.setupEventListeners();
         this.startCountdownTimer();
         
-        // Hide loading screen after 2 seconds
+        // Hide loading screen after 1.5 seconds (lebih cepat)
         setTimeout(() => {
             this.hideLoadingScreen();
             this.showLoginScreen();
-        }, 2000);
+        }, 1500);
     }
 
     async checkSystemStatus() {
@@ -112,7 +114,7 @@ class SPIMFSystem {
             } else {
                 this.updateMaintenanceCountdown();
             }
-        }, 60000); // Update every minute
+        }, 60000);
     }
 
     setupEventListeners() {
@@ -154,14 +156,6 @@ class SPIMFSystem {
         });
 
         // Action buttons
-        document.getElementById('revertDataBtn').addEventListener('click', () => {
-            this.revertData();
-        });
-
-        document.getElementById('viewLogsBtn').addEventListener('click', () => {
-            this.viewLogs();
-        });
-
         document.getElementById('logoutBtn').addEventListener('click', () => {
             this.logout();
         });
@@ -178,28 +172,54 @@ class SPIMFSystem {
         const btn = document.querySelector('.login-btn');
         const originalText = btn.innerHTML;
         
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sedang Login...';
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyambung...';
         btn.disabled = true;
 
         try {
-            const response = await this.callAppScript('login', loginData);
+            const response = await this.callAppScriptWithRetry('login', loginData);
             
             if (response.success) {
-                this.showMessage('loginMessage', 'Login berjaya! Sedang memuatkan data...', 'success');
+                this.showMessage('loginMessage', 'Login berjaya!', 'success');
                 this.currentUser = response.userData;
+                
+                // Load app immediately
                 setTimeout(() => {
                     this.showAppScreen();
                     this.loadUserData();
-                }, 1500);
+                }, 800);
+                
             } else {
-                this.showMessage('loginMessage', response.message, response.banned ? 'error' : 'warning');
+                this.showMessage('loginMessage', response.message, 'error');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
             }
         } catch (error) {
-            this.showMessage('loginMessage', 'Ralat sistem: ' + error.message, 'error');
-        } finally {
+            this.showMessage('loginMessage', error.message, 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
+    }
+
+    async callAppScriptWithRetry(action, data = {}) {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+            try {
+                console.log(`Attempt ${attempt} for ${action}`);
+                const response = await this.callAppScript(action, data);
+                return response;
+            } catch (error) {
+                lastError = error;
+                console.log(`Attempt ${attempt} failed:`, error);
+                
+                if (attempt < this.maxRetries) {
+                    // Wait before retry
+                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+                }
+            }
+        }
+        
+        throw lastError;
     }
 
     async callAppScript(action, data = {}) {
@@ -208,15 +228,22 @@ class SPIMFSystem {
             ...data
         };
 
-        try {
-            const response = await fetch(SPIMF_CONFIG.APP_SCRIPT_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
+        // Timeout after 15 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Request timeout')), 15000);
+        });
 
+        const fetchPromise = fetch(SPIMF_CONFIG.APP_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        try {
+            const response = await Promise.race([fetchPromise, timeoutPromise]);
+            
             if (!response.ok) {
                 throw new Error('Network response was not ok');
             }
@@ -291,14 +318,13 @@ class SPIMFSystem {
         });
 
         try {
-            const response = await this.callAppScript('updateProfile', {
+            const response = await this.callAppScriptWithRetry('updateProfile', {
                 row: this.currentUser.row,
                 updates: updates
             });
 
             if (response.success) {
                 this.showMessage('profileMessage', 'Data berjaya dikemaskini!', 'success');
-                // Update current user data
                 Object.assign(this.currentUser, updates);
             } else {
                 this.showMessage('profileMessage', response.message, 'error');
@@ -317,14 +343,13 @@ class SPIMFSystem {
         });
 
         try {
-            const response = await this.callAppScript('updateMedia', {
+            const response = await this.callAppScriptWithRetry('updateMedia', {
                 row: this.currentUser.row,
                 updates: updates
             });
 
             if (response.success) {
                 this.showMessage('mediaMessage', 'Data media berjaya dikemaskini!', 'success');
-                // Update current user data
                 Object.assign(this.currentUser, updates);
                 this.toggleSocialMediaFields(updates['DO YOU HAVE A SOCIAL MEDIA ACCOUNT AND HAVE MORE THAN 50 FOLLOWERS'] === 'YES');
             } else {
@@ -336,13 +361,11 @@ class SPIMFSystem {
     }
 
     switchTab(tabName) {
-        // Update navigation
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
         document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 
-        // Update content
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
@@ -362,47 +385,8 @@ class SPIMFSystem {
         statusBadge.className = `status-badge ${isActive ? 'active' : 'inactive'}`;
         statusBadge.innerHTML = `<i class="fas fa-circle"></i><span>${status}</span>`;
         
-        // Update system status indicator
         const systemStatus = document.getElementById('systemStatus');
         systemStatus.className = `system-status ${isActive ? 'active' : 'inactive'}`;
-    }
-
-    async revertData() {
-        if (!confirm('Adakah anda pasti ingin mengembalikan data kepada keadaan sebelumnya?')) {
-            return;
-        }
-
-        try {
-            const response = await this.callAppScript('revertData', {
-                row: this.currentUser.row
-            });
-
-            if (response.success) {
-                this.showMessage('actionMessage', 'Data berjaya dikembalikan!', 'success');
-                this.currentUser = response.userData;
-                this.loadUserData();
-            } else {
-                this.showMessage('actionMessage', response.message, 'error');
-            }
-        } catch (error) {
-            this.showMessage('actionMessage', 'Ralat sistem: ' + error.message, 'error');
-        }
-    }
-
-    async viewLogs() {
-        try {
-            const response = await this.callAppScript('getLogs', {
-                row: this.currentUser.row
-            });
-
-            if (response.success) {
-                alert(`Log Aktiviti:\n\n${response.logs.join('\n')}`);
-            } else {
-                this.showMessage('actionMessage', response.message, 'error');
-            }
-        } catch (error) {
-            this.showMessage('actionMessage', 'Ralat sistem: ' + error.message, 'error');
-        }
     }
 
     logout() {
@@ -417,7 +401,6 @@ class SPIMFSystem {
     copyToClipboard(targetId) {
         const text = document.getElementById(targetId).textContent;
         navigator.clipboard.writeText(text).then(() => {
-            // Show temporary success feedback
             const btn = event.currentTarget;
             const originalHTML = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-check"></i>';
@@ -438,14 +421,12 @@ class SPIMFSystem {
         messageEl.className = `message ${type}`;
         messageEl.classList.remove('hidden');
 
-        // Auto hide after 5 seconds
         setTimeout(() => {
             messageEl.classList.add('hidden');
         }, 5000);
     }
 }
 
-// Initialize the system when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new SPIMFSystem();
 });
