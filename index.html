@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIMF - Sistem Pengurusan Identiti Membership FareezOnzz</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h3>Memuatkan SPIMF Sistem...</h3>
+            <p>Sila tunggu sebentar</p>
+        </div>
+    </div>
+
+    <!-- Maintenance Screen -->
+    <div id="maintenance" class="maintenance-screen hidden">
+        <div class="maintenance-container">
+            <div class="maintenance-icon">
+                <i class="fas fa-tools"></i>
+            </div>
+            <h1>Sistem Dalam Waktu Tidak Aktif</h1>
+            <p>Maaf, sistem SPIMF sedang tidak aktif pada waktu ini. Sila kembali pada waktu operasi yang ditetapkan.</p>
+            <div class="operating-hours">
+                <h3>⏰ Waktu Operasi Sistem:</h3>
+                <ul>
+                    <li>6:00 Pagi Hingga 11:30 Pagi</li>
+                    <li>12:00 Tengahari Hingga 6:00 Petang</li>
+                    <li>6:30 Petang Hingga 11:59 Malam</li>
+                </ul>
+            </div>
+            <div class="countdown" id="maintenanceCountdown">
+                Sistem akan diaktifkan semula pada: <span id="nextActivationTime">-</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="login-screen hidden">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-id-card-alt"></i>
+                    <h1>SPIMF</h1>
+                </div>
+                <p>Sistem Pengurusan Identiti Membership FareezOnzz</p>
+            </div>
+
+            <div class="countdown-banner" id="loginCountdown">
+                <i class="fas fa-clock"></i>
+                <span>Sistem aktif hingga: <span id="timeToDeactivate">-</span></span>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="form-group">
+                    <label for="phoneNumber">
+                        <i class="fas fa-phone"></i>
+                        PHONE NUMBER
+                    </label>
+                    <input type="text" id="phoneNumber" name="phoneNumber" required 
+                           placeholder="Masukkan nombor telefon">
+                </div>
+
+                <div class="form-group">
+                    <label for="idCard">
+                        <i class="fas fa-id-card"></i>
+                        ID CARD REGISTRATION
+                    </label>
+                    <input type="text" id="idCard" name="idCard" required 
+                           placeholder="Masukkan ID kad pendaftaran">
+                </div>
+
+                <div class="form-group">
+                    <label for="kodeUser">
+                        <i class="fas fa-key"></i>
+                        KODE USER
+                    </label>
+                    <input type="text" id="kodeUser" name="kodeUser" required 
+                           placeholder="Masukkan kode user">
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Login ke Sistem
+                </button>
+            </form>
+
+            <div class="login-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Jika ID Card Registration dan Kode User salah, pengguna akan dibanned selama 7 hari</p>
+            </div>
+
+            <div id="loginMessage" class="message hidden"></div>
+
+            <div class="login-footer">
+                <p>&copy; Hak cipta SPIMF Online Sistem dipelihara sejak 22 November 2025</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app-container hidden">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="app-logo">
+                        <i class="fas fa-id-card-alt"></i>
+                        <span>SPIMF</span>
+                    </div>
+                    <div class="welcome-message" id="welcomeMessage">
+                        Hai, <span id="userName">-</span>! Selamat kembali di SPIMF
+                    </div>
+                </div>
+                <div class="header-right">
+                    <div class="system-status" id="systemStatus">
+                        <i class="fas fa-circle"></i>
+                        <span id="statusText">-</span>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Log Keluar
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="app-nav">
+            <div class="nav-container">
+                <button class="nav-item active" data-tab="profile">
+                    <i class="fas fa-user"></i>
+                    Maklumat Ahli
+                </button>
+                <button class="nav-item" data-tab="media">
+                    <i class="fas fa-share-alt"></i>
+                    Media Massa
+                </button>
+                <button class="nav-item" data-tab="personality">
+                    <i class="fas fa-brain"></i>
+                    Personality
+                </button>
+                <button class="nav-item" data-tab="additional">
+                    <i class="fas fa-info-circle"></i>
+                    Butiran Tambahan
+                </button>
+                <button class="nav-item" data-tab="actions">
+                    <i class="fas fa-cogs"></i>
+                    Tindakan Penuh
+                </button>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Profile Tab -->
+            <div id="profile" class="tab-content active">
+                <div class="tab-header">
+                    <h2><i class="fas fa-user-edit"></i> Kemaskini Maklumat Ahli Diri Anda</h2>
+                    <p>Edit dan simpan maklumat peribadi anda</p>
+                </div>
+                
+                <form id="profileForm" class="data-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="yourName">YOUR NAME / Nama anda</label>
+                            <input type="text" id="yourName" name="YOUR NAME" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="yourAge">YOUR AGE / Umur anda</label>
+                            <input type="number" id="yourAge" name="YOUR AGE" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="yourDob">YOUR DATE OF BIRTH / Tarikh lahir anda</label>
+                            <input type="date" id="yourDob" name="YOUR DATE OF BIRTH" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="gender">GENDER / Jantina</label>
+                            <select id="gender" name="GENDER" required>
+                                <option value="MALE">MALE / Lelaki</option>
+                                <option value="FEMALE">FEMALE / Perempuan</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="religion">YOUR RELIGION / Agama anda</label>
+                            <input type="text" id="religion" name="YOUR RELIGION" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="country">YOUR COUNTRY / Negara anda</label>
+                            <input type="text" id="country" name="YOUR COUNTRY" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="state">YOUR STATE / Negeri Anda</label>
+                            <input type="text" id="state" name="YOUR STATE" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="phone">PHONE NUMBER / Nombor telefon</label>
+                            <input type="text" id="phone" name="PHONE NUMBER" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="leftHanded">ARE YOU LEFT-HANDED? / Adakah anda kidal?</label>
+                            <select id="leftHanded" name="ARE YOU LEFT-HANDED" required>
+                                <option value="YES">YES / Ya</option>
+                                <option value="NO">NO / Tidak</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="dreamCareer">DREAM CAREER / Kerjaya impian</label>
+                            <input type="text" id="dreamCareer" name="DREAM CAREER" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="email">EMAIL ADDRESS</label>
+                            <input type="email" id="email" name="EMAIL ADDRESS" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save"></i>
+                            Kemaskini Data
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="profileMessage" class="message hidden"></div>
+            </div>
+
+            <!-- Media Tab -->
+            <div id="media" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="fas fa-share-alt"></i> Kemaskini Maklumat Media Massa</h2>
+                    <p>Kemaskini maklumat media sosial anda</p>
+                </div>
+                
+                <form id="mediaForm" class="data-form">
+                    <div class="form-group">
+                        <label for="hasSocialMedia">ADA MEDIA SOSIAL DENGAN 50+ FOLLOWERS?</label>
+                        <select id="hasSocialMedia" name="DO YOU HAVE A SOCIAL MEDIA ACCOUNT AND HAVE MORE THAN 50 FOLLOWERS" required>
+                            <option value="NO">NO / Tiada</option>
+                            <option value="YES">YES / Ada</option>
+                        </select>
+                    </div>
+                    
+                    <div id="socialMediaFields" class="conditional-fields hidden">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label for="tiktok">TIKTOK</label>
+                                <input type="text" id="tiktok" name="TIKTOK">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="instagram">INSTAGRAM</label>
+                                <input type="text" id="instagram" name="INSTAGRAM">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="youtube">YOUTUBE</label>
+                                <input type="text" id="youtube" name="YOUTUBE">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="twitter">TWITTER</label>
+                                <input type="text" id="twitter" name="TWITTER">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save"></i>
+                            Kemaskini Media
+                        </button>
+                    </div>
+                </form>
+                
+                <div id="mediaMessage" class="message hidden"></div>
+            </div>
+
+            <!-- Personality Tab -->
+            <div id="personality" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="fas fa-brain"></i> Personality Diri Anda</h2>
+                    <p>Maklumat personality dan minat anda</p>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-tools"></i>
+                        </div>
+                        <div class="info-content">
+                            <h4>SUKA MEMBAIKI</h4>
+                            <p id="likeToRepair">-</p>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="info-content">
+                            <h4>SUBJEK KEGEMARAN</h4>
+                            <p id="favoriteSubject">-</p>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card">
+                        <div class="info-icon">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="info-content">
+                            <h4>SUBJEK PALING SUKAR</h4>
+                            <p id="difficultSubject">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Info Tab -->
+            <div id="additional" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="fas fa-info-circle"></i> Butiran Tambahan</h2>
+                    <p>Maklumat tambahan mengenai akaun anda</p>
+                </div>
+                
+                <div class="info-grid">
+                    <div class="info-card">
+                        <h4>ANDA MENGENALI KAMI SEBAGAI</h4>
+                        <p id="knowUsAs">-</p>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>TARIKH SEMASA</h4>
+                        <p id="currentDate">-</p>
+                    </div>
+                    
+                    <div class="info-card">
+                        <h4>SCORE</h4>
+                        <p id="score" class="score-value">-</p>
+                    </div>
+                    
+                    <div class="info-card copyable">
+                        <h4>ID CARD REGISTRATION</h4>
+                        <div class="copy-field">
+                            <p id="idCardDisplay">-</p>
+                            <button class="copy-btn" data-target="idCardDisplay">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card copyable">
+                        <h4>KODE USER</h4>
+                        <div class="copy-field">
+                            <p id="kodeUserDisplay">-</p>
+                            <button class="copy-btn" data-target="kodeUserDisplay">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card copyable">
+                        <h4>MEMBERSHIP ACCOUNT</h4>
+                        <div class="copy-field">
+                            <p id="membershipAccount">-</p>
+                            <button class="copy-btn" data-target="membershipAccount">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="info-card copyable">
+                        <h4>MEMBERSHIP PASSWORD ACCOUNT</h4>
+                        <div class="copy-field">
+                            <p id="membershipPassword">-</p>
+                            <button class="copy-btn" data-target="membershipPassword">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions Tab -->
+            <div id="actions" class="tab-content">
+                <div class="tab-header">
+                    <h2><i class="fas fa-cogs"></i> Tindakan Penuh</h2>
+                    <p>Pengurusan akaun dan tindakan sistem</p>
+                </div>
+                
+                <div class="actions-grid">
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>LOG / CACHE</h4>
+                            <p>Kemaskinian setiap sesuatu yang diperbaharui</p>
+                            <button class="btn-secondary" id="viewLogsBtn">
+                                Lihat Log
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>HISTORY RETURN</h4>
+                            <p>Kembalikan data kepada data asal</p>
+                            <button class="btn-warning" id="revertDataBtn">
+                                Pulihkan Data
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>STATUS ACCOUNT</h4>
+                            <p id="accountStatusText">Status: -</p>
+                            <div class="status-badge" id="statusBadge">
+                                <i class="fas fa-circle"></i>
+                                <span>-</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-card">
+                        <div class="action-icon">
+                            <i class="fas fa-headset"></i>
+                        </div>
+                        <div class="action-content">
+                            <h4>HUBUNGI SOKONGAN</h4>
+                            <p>Dapatkan bantuan daripada pihak sokongan</p>
+                            <div class="support-emails">
+                                <a href="mailto:pfareezonzz01@gmail.com" class="email-link">
+                                    <i class="fas fa-envelope"></i>
+                                    pfareezonzz01@gmail.com
+                                </a>
+                                <a href="mailto:developerfareezonzz@gmail.com" class="email-link">
+                                    <i class="fas fa-envelope"></i>
+                                    developerfareezonzz@gmail.com
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="disclaimer">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Jika berlaku apa-apa atas kecuaian diri sendiri tidak dapat dibantu oleh pihak SPIMF</p>
+                </div>
+                
+                <div id="actionMessage" class="message hidden"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
