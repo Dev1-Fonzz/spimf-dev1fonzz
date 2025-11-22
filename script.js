@@ -1,125 +1,168 @@
-// SPIMF System Configuration - OPTIMIZED
-const SPIMF_CONFIG = {
-    APP_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
-    OPERATING_HOURS: [
-        { start: '06:00', end: '11:30' },
-        { start: '12:00', end: '18:00' },
-        { start: '18:30', end: '23:59' }
-    ],
-    BAN_DAYS: 7
-};
-
+// SPIMF SYSTEM - OPTIMIZED FOR FAST LOADING
 class SPIMFSystem {
     constructor() {
         this.currentUser = null;
         this.isSystemActive = false;
         this.retryCount = 0;
         this.maxRetries = 2;
+        this.loadingStartTime = null;
+        this.loadingInterval = null;
         this.init();
     }
 
     init() {
-        this.checkSystemStatus();
+        console.log('🚀 SPIMF System Initializing...');
         this.setupEventListeners();
-        this.startCountdownTimer();
-        
-        // Hide loading screen after 1.5 seconds (lebih cepat)
-        setTimeout(() => {
-            this.hideLoadingScreen();
-            this.showLoginScreen();
-        }, 1500);
+        this.showLoadingScreen();
+        this.checkSystemStatus();
     }
 
-    async checkSystemStatus() {
-        const now = new Date();
-        const currentTime = this.formatTime(now);
+    showLoadingScreen() {
+        this.loadingStartTime = Date.now();
+        const loadingScreen = document.getElementById('loading');
+        const loadingText = loadingScreen.querySelector('h3');
+        const loadingSubtext = loadingScreen.querySelector('p');
         
-        for (const hours of SPIMF_CONFIG.OPERATING_HOURS) {
-            if (currentTime >= hours.start && currentTime <= hours.end) {
-                this.isSystemActive = true;
-                return;
+        loadingScreen.classList.remove('hidden');
+        
+        let dots = 0;
+        this.loadingInterval = setInterval(() => {
+            dots = (dots + 1) % 4;
+            const elapsed = Math.floor((Date.now() - this.loadingStartTime) / 1000);
+            
+            loadingText.innerHTML = `Memuatkan SPIMF Sistem${'.'.repeat(dots)}`;
+            loadingSubtext.innerHTML = `Loading: ${elapsed}s | Sistem sedang dimuatkan`;
+            
+            // Auto timeout setelah 15 saat
+            if (elapsed >= 15) {
+                this.hideLoadingScreen();
+                this.showError('Sistem timeout. Sila refresh page.', true);
             }
-        }
-        this.isSystemActive = false;
-        this.showMaintenanceScreen();
-    }
-
-    formatTime(date) {
-        return date.toTimeString().slice(0, 5);
+        }, 500);
     }
 
     hideLoadingScreen() {
+        if (this.loadingInterval) {
+            clearInterval(this.loadingInterval);
+            this.loadingInterval = null;
+        }
         document.getElementById('loading').classList.add('hidden');
     }
 
-    showMaintenanceScreen() {
-        document.getElementById('maintenance').classList.remove('hidden');
-        this.updateMaintenanceCountdown();
+    showCountdownLoader(message, duration = 10) {
+        return new Promise((resolve) => {
+            const loader = document.createElement('div');
+            loader.className = 'countdown-loader';
+            loader.innerHTML = `
+                <div class="countdown-content">
+                    <div class="countdown-spinner"></div>
+                    <h4>${message}</h4>
+                    <div class="countdown-timer">
+                        <span class="countdown-number">${duration}</span>s
+                    </div>
+                    <p>Sila tunggu sebentar...</p>
+                </div>
+            `;
+            
+            document.body.appendChild(loader);
+            
+            let timeLeft = duration;
+            const timerElement = loader.querySelector('.countdown-number');
+            const timerInterval = setInterval(() => {
+                timeLeft--;
+                timerElement.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    loader.remove();
+                    resolve(false); // Timeout
+                }
+            }, 1000);
+            
+            // Untuk cancel manual jika operation selesai
+            return {
+                complete: () => {
+                    clearInterval(timerInterval);
+                    loader.remove();
+                    resolve(true);
+                },
+                timeout: () => {
+                    clearInterval(timerInterval);
+                    loader.remove();
+                    resolve(false);
+                }
+            };
+        });
     }
 
-    showLoginScreen() {
-        if (this.isSystemActive) {
-            document.getElementById('loginScreen').classList.remove('hidden');
-            this.updateLoginCountdown();
-        }
-    }
-
-    showAppScreen() {
-        document.getElementById('loginScreen').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-    }
-
-    updateMaintenanceCountdown() {
-        const nextActivation = this.getNextActivationTime();
-        document.getElementById('nextActivationTime').textContent = nextActivation;
-    }
-
-    updateLoginCountdown() {
-        const timeToDeactivate = this.getTimeToDeactivation();
-        document.getElementById('timeToDeactivate').textContent = timeToDeactivate;
-    }
-
-    getNextActivationTime() {
-        const now = new Date();
-        const currentTime = this.formatTime(now);
+    async checkSystemStatus() {
+        console.log('🔍 Checking system status...');
         
-        for (const hours of SPIMF_CONFIG.OPERATING_HOURS) {
-            if (currentTime < hours.start) {
-                return hours.start;
-            }
+        const countdown = await this.showCountdownLoader('Menyambung ke Server', 8);
+        if (!countdown) {
+            this.showError('Gagal menyambung ke server. Timeout.', true);
+            return;
         }
-        
-        // Return first operating hour tomorrow
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return `Besok ${SPIMF_CONFIG.OPERATING_HOURS[0].start}`;
-    }
 
-    getTimeToDeactivation() {
-        const now = new Date();
-        const currentTime = this.formatTime(now);
-        
-        for (const hours of SPIMF_CONFIG.OPERATING_HOURS) {
-            if (currentTime >= hours.start && currentTime < hours.end) {
-                return hours.end;
-            }
-        }
-        return '-';
-    }
-
-    startCountdownTimer() {
-        setInterval(() => {
-            if (this.isSystemActive) {
-                this.updateLoginCountdown();
+        try {
+            const response = await this.callApi('GET', 'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec');
+            
+            if (response.connected) {
+                console.log('✅ System connected successfully');
+                this.hideLoadingScreen();
+                this.showLoginScreen();
             } else {
-                this.updateMaintenanceCountdown();
+                this.showError('Sistem tidak dapat diakses. Sila cuba lagi.', true);
             }
-        }, 60000);
+        } catch (error) {
+            console.error('❌ System check failed:', error);
+            this.showError('Gagal menyambung ke sistem SPIMF.', true);
+        }
+    }
+
+    async callApi(method = 'GET', url, data = null) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+        try {
+            const options = {
+                method: method,
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            };
+
+            if (data && method !== 'GET') {
+                options.body = JSON.stringify(data);
+            }
+
+            console.log(`🌐 API Call: ${method} ${url}`);
+            const response = await fetch(url, options);
+            clearTimeout(timeoutId);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ API Response:', result);
+            return result;
+
+        } catch (error) {
+            clearTimeout(timeoutId);
+            console.error('❌ API Error:', error);
+            
+            if (error.name === 'AbortError') {
+                throw new Error('Request timeout. Sila check connection anda.');
+            }
+            throw error;
+        }
     }
 
     setupEventListeners() {
         // Login form
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
+        document.getElementById('loginForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.handleLogin();
         });
@@ -132,19 +175,19 @@ class SPIMFSystem {
         });
 
         // Profile form
-        document.getElementById('profileForm').addEventListener('submit', (e) => {
+        document.getElementById('profileForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.updateProfile();
         });
 
         // Media form
-        document.getElementById('mediaForm').addEventListener('submit', (e) => {
+        document.getElementById('mediaForm')?.addEventListener('submit', (e) => {
             e.preventDefault();
             this.updateMedia();
         });
 
         // Social media toggle
-        document.getElementById('hasSocialMedia').addEventListener('change', (e) => {
+        document.getElementById('hasSocialMedia')?.addEventListener('change', (e) => {
             this.toggleSocialMediaFields(e.target.value === 'YES');
         });
 
@@ -155,8 +198,8 @@ class SPIMFSystem {
             });
         });
 
-        // Action buttons
-        document.getElementById('logoutBtn').addEventListener('click', () => {
+        // Logout button
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
             this.logout();
         });
     }
@@ -172,21 +215,35 @@ class SPIMFSystem {
         const btn = document.querySelector('.login-btn');
         const originalText = btn.innerHTML;
         
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyambung...';
+        // Show loading state
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengesahkan...';
         btn.disabled = true;
 
+        const countdown = await this.showCountdownLoader('Mengesahkan Maklumat Login', 10);
+        if (!countdown) {
+            this.showMessage('loginMessage', 'Login timeout. Sila cuba lagi.', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
+        }
+
         try {
-            const response = await this.callAppScriptWithRetry('login', loginData);
-            
+            const response = await this.callApi('POST', 
+                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
+                {
+                    action: 'login',
+                    ...loginData
+                }
+            );
+
             if (response.success) {
-                this.showMessage('loginMessage', 'Login berjaya!', 'success');
+                this.showMessage('loginMessage', '✅ Login berjaya! Memuatkan data...', 'success');
                 this.currentUser = response.userData;
                 
-                // Load app immediately
                 setTimeout(() => {
                     this.showAppScreen();
                     this.loadUserData();
-                }, 800);
+                }, 1000);
                 
             } else {
                 this.showMessage('loginMessage', response.message, 'error');
@@ -194,64 +251,102 @@ class SPIMFSystem {
                 btn.disabled = false;
             }
         } catch (error) {
-            this.showMessage('loginMessage', error.message, 'error');
+            this.showMessage('loginMessage', '❌ Ralat sistem: ' + error.message, 'error');
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
     }
 
-    async callAppScriptWithRetry(action, data = {}) {
-        let lastError;
+    async updateProfile() {
+        const formData = new FormData(document.getElementById('profileForm'));
+        const updates = {};
         
-        for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-            try {
-                console.log(`Attempt ${attempt} for ${action}`);
-                const response = await this.callAppScript(action, data);
-                return response;
-            } catch (error) {
-                lastError = error;
-                console.log(`Attempt ${attempt} failed:`, error);
-                
-                if (attempt < this.maxRetries) {
-                    // Wait before retry
-                    await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-                }
-            }
+        formData.forEach((value, key) => {
+            updates[key] = value;
+        });
+
+        const btn = document.querySelector('#profileForm .btn-primary');
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+
+        const countdown = await this.showCountdownLoader('Menyimpan Perubahan', 8);
+        if (!countdown) {
+            this.showMessage('profileMessage', 'Save timeout. Sila cuba lagi.', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
         }
-        
-        throw lastError;
-    }
-
-    async callAppScript(action, data = {}) {
-        const payload = {
-            action: action,
-            ...data
-        };
-
-        // Timeout after 15 seconds
-        const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Request timeout')), 15000);
-        });
-
-        const fetchPromise = fetch(SPIMF_CONFIG.APP_SCRIPT_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload)
-        });
 
         try {
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
+            const response = await this.callApi('POST',
+                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
+                {
+                    action: 'updateProfile',
+                    row: this.currentUser.row,
+                    updates: updates
+                }
+            );
 
-            return await response.json();
+            if (response.success) {
+                this.showMessage('profileMessage', '✅ Data berjaya dikemaskini!', 'success');
+                Object.assign(this.currentUser, updates);
+            } else {
+                this.showMessage('profileMessage', response.message, 'error');
+            }
         } catch (error) {
-            console.error('Error calling Apps Script:', error);
-            throw error;
+            this.showMessage('profileMessage', '❌ Gagal save: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+
+    async updateMedia() {
+        const formData = new FormData(document.getElementById('mediaForm'));
+        const updates = {};
+        
+        formData.forEach((value, key) => {
+            updates[key] = value;
+        });
+
+        const btn = document.querySelector('#mediaForm .btn-primary');
+        const originalText = btn.innerHTML;
+        
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+        btn.disabled = true;
+
+        const countdown = await this.showCountdownLoader('Mengemaskini Media', 6);
+        if (!countdown) {
+            this.showMessage('mediaMessage', 'Save timeout. Sila cuba lagi.', 'error');
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        try {
+            const response = await this.callApi('POST',
+                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
+                {
+                    action: 'updateMedia',
+                    row: this.currentUser.row,
+                    updates: updates
+                }
+            );
+
+            if (response.success) {
+                this.showMessage('mediaMessage', '✅ Media sosial berjaya dikemaskini!', 'success');
+                Object.assign(this.currentUser, updates);
+                this.toggleSocialMediaFields(updates['DO YOU HAVE A SOCIAL MEDIA ACCOUNT AND HAVE MORE THAN 50 FOLLOWERS'] === 'YES');
+            } else {
+                this.showMessage('mediaMessage', response.message, 'error');
+            }
+        } catch (error) {
+            this.showMessage('mediaMessage', '❌ Gagal save media: ' + error.message, 'error');
+        } finally {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
         }
     }
 
@@ -309,55 +404,13 @@ class SPIMFSystem {
         }
     }
 
-    async updateProfile() {
-        const formData = new FormData(document.getElementById('profileForm'));
-        const updates = {};
-        
-        formData.forEach((value, key) => {
-            updates[key] = value;
-        });
-
-        try {
-            const response = await this.callAppScriptWithRetry('updateProfile', {
-                row: this.currentUser.row,
-                updates: updates
-            });
-
-            if (response.success) {
-                this.showMessage('profileMessage', 'Data berjaya dikemaskini!', 'success');
-                Object.assign(this.currentUser, updates);
-            } else {
-                this.showMessage('profileMessage', response.message, 'error');
-            }
-        } catch (error) {
-            this.showMessage('profileMessage', 'Ralat sistem: ' + error.message, 'error');
-        }
+    showLoginScreen() {
+        document.getElementById('loginScreen').classList.remove('hidden');
     }
 
-    async updateMedia() {
-        const formData = new FormData(document.getElementById('mediaForm'));
-        const updates = {};
-        
-        formData.forEach((value, key) => {
-            updates[key] = value;
-        });
-
-        try {
-            const response = await this.callAppScriptWithRetry('updateMedia', {
-                row: this.currentUser.row,
-                updates: updates
-            });
-
-            if (response.success) {
-                this.showMessage('mediaMessage', 'Data media berjaya dikemaskini!', 'success');
-                Object.assign(this.currentUser, updates);
-                this.toggleSocialMediaFields(updates['DO YOU HAVE A SOCIAL MEDIA ACCOUNT AND HAVE MORE THAN 50 FOLLOWERS'] === 'YES');
-            } else {
-                this.showMessage('mediaMessage', response.message, 'error');
-            }
-        } catch (error) {
-            this.showMessage('mediaMessage', 'Ralat sistem: ' + error.message, 'error');
-        }
+    showAppScreen() {
+        document.getElementById('loginScreen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
     }
 
     switchTab(tabName) {
@@ -425,8 +478,119 @@ class SPIMFSystem {
             messageEl.classList.add('hidden');
         }, 5000);
     }
+
+    showError(message, showRetry = false) {
+        const errorHtml = `
+            <div class="error-screen">
+                <div class="error-content">
+                    <div class="error-icon">❌</div>
+                    <h3>System Error</h3>
+                    <p>${message}</p>
+                    ${showRetry ? '<button class="retry-btn" onclick="location.reload()">Cuba Lagi</button>' : ''}
+                </div>
+            </div>
+        `;
+        
+        document.body.innerHTML += errorHtml;
+    }
 }
 
+// Initialize system when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     new SPIMFSystem();
 });
+
+// Add CSS for countdown loader
+const style = document.createElement('style');
+style.textContent = `
+    .countdown-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+    
+    .countdown-content {
+        background: white;
+        padding: 30px;
+        border-radius: 15px;
+        text-align: center;
+        min-width: 300px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+    
+    .countdown-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    
+    .countdown-timer {
+        font-size: 24px;
+        font-weight: bold;
+        color: #e74c3c;
+        margin: 15px 0;
+    }
+    
+    .countdown-number {
+        font-size: 32px;
+    }
+    
+    .error-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+    }
+    
+    .error-content {
+        background: white;
+        padding: 40px;
+        border-radius: 15px;
+        text-align: center;
+        max-width: 400px;
+        margin: 20px;
+    }
+    
+    .error-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+    
+    .retry-btn {
+        background: #3498db;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        margin-top: 20px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-screen {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+`;
+document.head.appendChild(style);
