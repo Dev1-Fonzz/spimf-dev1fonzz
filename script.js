@@ -1,12 +1,11 @@
-// SPIMF SYSTEM - OPTIMIZED FOR FAST LOADING
+// SPIMF SYSTEM - OPTIMIZED WITH COUNTDOWN
 class SPIMFSystem {
     constructor() {
         this.currentUser = null;
-        this.isSystemActive = false;
         this.retryCount = 0;
-        this.maxRetries = 2;
-        this.loadingStartTime = null;
+        this.maxRetries = 3;
         this.loadingInterval = null;
+        this.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec';
         this.init();
     }
 
@@ -18,7 +17,6 @@ class SPIMFSystem {
     }
 
     showLoadingScreen() {
-        this.loadingStartTime = Date.now();
         const loadingScreen = document.getElementById('loading');
         const loadingText = loadingScreen.querySelector('h3');
         const loadingSubtext = loadingScreen.querySelector('p');
@@ -26,103 +24,52 @@ class SPIMFSystem {
         loadingScreen.classList.remove('hidden');
         
         let dots = 0;
+        let seconds = 0;
         this.loadingInterval = setInterval(() => {
             dots = (dots + 1) % 4;
-            const elapsed = Math.floor((Date.now() - this.loadingStartTime) / 1000);
+            seconds++;
             
             loadingText.innerHTML = `Memuatkan SPIMF Sistem${'.'.repeat(dots)}`;
-            loadingSubtext.innerHTML = `Loading: ${elapsed}s | Sistem sedang dimuatkan`;
+            loadingSubtext.innerHTML = `Loading: ${seconds}s | Sistem sedang dimuatkan`;
             
-            // Auto timeout setelah 15 saat
-            if (elapsed >= 15) {
+            // Auto timeout setelah 20 saat
+            if (seconds >= 20) {
                 this.hideLoadingScreen();
-                this.showError('Sistem timeout. Sila refresh page.', true);
+                this.showError('Sistem timeout. Sila refresh page atau cuba lagi nanti.', true);
             }
-        }, 500);
+        }, 1000);
     }
 
     hideLoadingScreen() {
         if (this.loadingInterval) {
             clearInterval(this.loadingInterval);
-            this.loadingInterval = null;
         }
         document.getElementById('loading').classList.add('hidden');
     }
 
-    showCountdownLoader(message, duration = 10) {
-        return new Promise((resolve) => {
-            const loader = document.createElement('div');
-            loader.className = 'countdown-loader';
-            loader.innerHTML = `
-                <div class="countdown-content">
-                    <div class="countdown-spinner"></div>
-                    <h4>${message}</h4>
-                    <div class="countdown-timer">
-                        <span class="countdown-number">${duration}</span>s
-                    </div>
-                    <p>Sila tunggu sebentar...</p>
-                </div>
-            `;
-            
-            document.body.appendChild(loader);
-            
-            let timeLeft = duration;
-            const timerElement = loader.querySelector('.countdown-number');
-            const timerInterval = setInterval(() => {
-                timeLeft--;
-                timerElement.textContent = timeLeft;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    loader.remove();
-                    resolve(false); // Timeout
-                }
-            }, 1000);
-            
-            // Untuk cancel manual jika operation selesai
-            return {
-                complete: () => {
-                    clearInterval(timerInterval);
-                    loader.remove();
-                    resolve(true);
-                },
-                timeout: () => {
-                    clearInterval(timerInterval);
-                    loader.remove();
-                    resolve(false);
-                }
-            };
-        });
-    }
-
     async checkSystemStatus() {
-        console.log('🔍 Checking system status...');
-        
-        const countdown = await this.showCountdownLoader('Menyambung ke Server', 8);
-        if (!countdown) {
-            this.showError('Gagal menyambung ke server. Timeout.', true);
-            return;
-        }
-
         try {
-            const response = await this.callApi('GET', 'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec');
+            console.log('🔍 Checking system status...');
+            const response = await this.callApi('GET', this.APPS_SCRIPT_URL);
             
-            if (response.connected) {
+            if (response.status === 'SUCCESS' || response.connected) {
                 console.log('✅ System connected successfully');
-                this.hideLoadingScreen();
-                this.showLoginScreen();
+                setTimeout(() => {
+                    this.hideLoadingScreen();
+                    this.showLoginScreen();
+                }, 1000);
             } else {
                 this.showError('Sistem tidak dapat diakses. Sila cuba lagi.', true);
             }
         } catch (error) {
             console.error('❌ System check failed:', error);
-            this.showError('Gagal menyambung ke sistem SPIMF.', true);
+            this.showError('Gagal menyambung ke sistem SPIMF. Sila check connection internet.', true);
         }
     }
 
     async callApi(method = 'GET', url, data = null) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
 
         try {
             const options = {
@@ -145,14 +92,10 @@ class SPIMFSystem {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            const result = await response.json();
-            console.log('✅ API Response:', result);
-            return result;
+            return await response.json();
 
         } catch (error) {
             clearTimeout(timeoutId);
-            console.error('❌ API Error:', error);
-            
             if (error.name === 'AbortError') {
                 throw new Error('Request timeout. Sila check connection anda.');
             }
@@ -167,7 +110,7 @@ class SPIMFSystem {
             this.handleLogin();
         });
 
-        // Navigation
+        // Navigation tabs
         document.querySelectorAll('.nav-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 this.switchTab(e.currentTarget.dataset.tab);
@@ -219,22 +162,11 @@ class SPIMFSystem {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Mengesahkan...';
         btn.disabled = true;
 
-        const countdown = await this.showCountdownLoader('Mengesahkan Maklumat Login', 10);
-        if (!countdown) {
-            this.showMessage('loginMessage', 'Login timeout. Sila cuba lagi.', 'error');
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            return;
-        }
-
         try {
-            const response = await this.callApi('POST', 
-                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
-                {
-                    action: 'login',
-                    ...loginData
-                }
-            );
+            const response = await this.callApi('POST', this.APPS_SCRIPT_URL, {
+                action: 'login',
+                ...loginData
+            });
 
             if (response.success) {
                 this.showMessage('loginMessage', '✅ Login berjaya! Memuatkan data...', 'success');
@@ -247,11 +179,10 @@ class SPIMFSystem {
                 
             } else {
                 this.showMessage('loginMessage', response.message, 'error');
-                btn.innerHTML = originalText;
-                btn.disabled = false;
             }
         } catch (error) {
             this.showMessage('loginMessage', '❌ Ralat sistem: ' + error.message, 'error');
+        } finally {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
@@ -271,23 +202,12 @@ class SPIMFSystem {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
         btn.disabled = true;
 
-        const countdown = await this.showCountdownLoader('Menyimpan Perubahan', 8);
-        if (!countdown) {
-            this.showMessage('profileMessage', 'Save timeout. Sila cuba lagi.', 'error');
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            return;
-        }
-
         try {
-            const response = await this.callApi('POST',
-                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
-                {
-                    action: 'updateProfile',
-                    row: this.currentUser.row,
-                    updates: updates
-                }
-            );
+            const response = await this.callApi('POST', this.APPS_SCRIPT_URL, {
+                action: 'updateProfile',
+                row: this.currentUser.row,
+                updates: updates
+            });
 
             if (response.success) {
                 this.showMessage('profileMessage', '✅ Data berjaya dikemaskini!', 'success');
@@ -317,23 +237,12 @@ class SPIMFSystem {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
         btn.disabled = true;
 
-        const countdown = await this.showCountdownLoader('Mengemaskini Media', 6);
-        if (!countdown) {
-            this.showMessage('mediaMessage', 'Save timeout. Sila cuba lagi.', 'error');
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            return;
-        }
-
         try {
-            const response = await this.callApi('POST',
-                'https://script.google.com/macros/s/AKfycbxrj3hY8hAxyn1HUFiYnras66lu38BQRzOk9xu7d51KQrm02-uA_jQpG2hvbbS1YZOE/exec',
-                {
-                    action: 'updateMedia',
-                    row: this.currentUser.row,
-                    updates: updates
-                }
-            );
+            const response = await this.callApi('POST', this.APPS_SCRIPT_URL, {
+                action: 'updateMedia',
+                row: this.currentUser.row,
+                updates: updates
+            });
 
             if (response.success) {
                 this.showMessage('mediaMessage', '✅ Media sosial berjaya dikemaskini!', 'success');
@@ -355,9 +264,7 @@ class SPIMFSystem {
 
         // Update welcome message
         document.getElementById('userName').textContent = this.currentUser['YOUR NAME'] || '-';
-        document.getElementById('welcomeMessage').textContent = 
-            `Hai, ${this.currentUser['YOUR NAME'] || '-'}! Selamat kembali di SPIMF`;
-
+        
         // Update profile form
         this.populateForm('profileForm', this.currentUser);
 
@@ -417,29 +324,25 @@ class SPIMFSystem {
         document.querySelectorAll('.nav-item').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
+        
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
         document.getElementById(tabName).classList.add('active');
     }
 
     updateAccountStatus(status) {
         const statusText = document.getElementById('statusText');
-        const accountStatusText = document.getElementById('accountStatusText');
         const statusBadge = document.getElementById('statusBadge');
         
         const isActive = status === '✅AKTIF';
-        
         statusText.textContent = isActive ? 'Sistem Aktif' : 'Sistem Tidak Aktif';
-        accountStatusText.textContent = `Status: ${status}`;
         
-        statusBadge.className = `status-badge ${isActive ? 'active' : 'inactive'}`;
-        statusBadge.innerHTML = `<i class="fas fa-circle"></i><span>${status}</span>`;
-        
-        const systemStatus = document.getElementById('systemStatus');
-        systemStatus.className = `system-status ${isActive ? 'active' : 'inactive'}`;
+        if (statusBadge) {
+            statusBadge.className = `status-badge ${isActive ? 'active' : 'inactive'}`;
+            statusBadge.innerHTML = `<i class="fas fa-circle"></i><span>${status}</span>`;
+        }
     }
 
     logout() {
@@ -463,23 +366,25 @@ class SPIMFSystem {
                 btn.innerHTML = originalHTML;
                 btn.style.background = '';
             }, 2000);
-        }).catch(err => {
-            console.error('Failed to copy text: ', err);
         });
     }
 
     showMessage(elementId, message, type) {
         const messageEl = document.getElementById(elementId);
-        messageEl.textContent = message;
-        messageEl.className = `message ${type}`;
-        messageEl.classList.remove('hidden');
+        if (messageEl) {
+            messageEl.textContent = message;
+            messageEl.className = `message ${type}`;
+            messageEl.classList.remove('hidden');
 
-        setTimeout(() => {
-            messageEl.classList.add('hidden');
-        }, 5000);
+            setTimeout(() => {
+                messageEl.classList.add('hidden');
+            }, 5000);
+        }
     }
 
     showError(message, showRetry = false) {
+        this.hideLoadingScreen();
+        
         const errorHtml = `
             <div class="error-screen">
                 <div class="error-content">
@@ -500,52 +405,9 @@ document.addEventListener('DOMContentLoaded', () => {
     new SPIMFSystem();
 });
 
-// Add CSS for countdown loader
+// Add CSS for error screen
 const style = document.createElement('style');
 style.textContent = `
-    .countdown-loader {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 10000;
-    }
-    
-    .countdown-content {
-        background: white;
-        padding: 30px;
-        border-radius: 15px;
-        text-align: center;
-        min-width: 300px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    }
-    
-    .countdown-spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid #3498db;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin: 0 auto 20px;
-    }
-    
-    .countdown-timer {
-        font-size: 24px;
-        font-weight: bold;
-        color: #e74c3c;
-        margin: 15px 0;
-    }
-    
-    .countdown-number {
-        font-size: 32px;
-    }
-    
     .error-screen {
         position: fixed;
         top: 0;
@@ -557,6 +419,7 @@ style.textContent = `
         align-items: center;
         justify-content: center;
         z-index: 10000;
+        color: white;
     }
     
     .error-content {
@@ -566,11 +429,13 @@ style.textContent = `
         text-align: center;
         max-width: 400px;
         margin: 20px;
+        color: #333;
     }
     
     .error-icon {
         font-size: 64px;
         margin-bottom: 20px;
+        color: #e74c3c;
     }
     
     .retry-btn {
@@ -584,9 +449,8 @@ style.textContent = `
         margin-top: 20px;
     }
     
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .retry-btn:hover {
+        background: #2980b9;
     }
     
     .loading-screen {
